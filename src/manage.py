@@ -405,7 +405,7 @@ class GameService(BaseService):
 		:return:
 		"""
 
-		if self.get_option('Use Direct Connection'):
+		if self.get_option_value('Use Direct Connection'):
 			return [
 				('Direct Connection Server Port', 'udp', '%s game port' % self.game.name, False),
 				('Direct Connection Server Port', 'tcp', '%s game port' % self.game.name, False)
