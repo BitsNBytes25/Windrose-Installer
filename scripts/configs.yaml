@@ -81,6 +81,11 @@ manager:
     default: ""
     help: "The password for accessing a private Steam branch, if applicable."
     group: Settings
+  - name: Default Proton Path
+    key: defaultprotonpath
+    section: Environment
+    type: str
+    help: "The default Proton path to use for new servers."
   - name: Delayed Shutdown Warning
     section: Messages
     key: shutdown_delayed
@@ -164,3 +169,10 @@ manager:
     key: webhook
     type: str
     help: "The webhook URL for sending server status updates to a Discord channel."
+service:
+  - name: Proton Path
+    key: protonpath
+    section: system
+    group: Settings
+    type: str
+    help: "The Proton path to use for this instance."

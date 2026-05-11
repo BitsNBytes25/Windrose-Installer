@@ -68,6 +68,9 @@ GAME_DIR="/home/${GAME_USER}/${GAME}"
 # https://github.com/BitsNBytes25/Warlock-Manager
 MANAGER_VERSION="2.2.12"
 
+# https://github.com/GloriousEggroll/proton-ge-custom
+PROTON_VERSION="10-34"
+
 # compile:usage
 # compile:argparse
 # scriptlet:_common/require_root.sh
@@ -78,7 +81,9 @@ MANAGER_VERSION="2.2.12"
 # scriptlet:bz_eval_tui/prompt_text.sh
 # scriptlet:bz_eval_tui/prompt_yn.sh
 # scriptlet:bz_eval_tui/print_header.sh
+# scriptlet:steam/install-steamcmd.sh
 # scriptlet:warlock/install_warlock_manager.sh
+# scriptlet:proton/install.sh
 # scriptlet:bz_eval_log/log.sh
 
 print_header "$GAME_DESC *unofficial* Installer ${INSTALLER_VERSION}"
@@ -152,25 +157,31 @@ function install_application() {
 
 	# Most games install into AppFiles, so ensure it's created.
 	[ -e "$GAME_DIR/AppFiles" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/AppFiles"
-	#[ -e "$GAME_DIR/Configs" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Configs"
+    [ -e "$GAME_DIR/Configs" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Configs"
 	#[ -e "$GAME_DIR/Packages" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Packages"
+    [ -e "$GAME_DIR/Environments" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Environments"
+    [ -e "$GAME_DIR/Migrations" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Migrations"
 
 
 	# To download a game with steamcmd, include the following header
 	#  # scriptlet:steam/install-steamcmd.sh
 	# and use:
-	#install_steamcmd
-	## Run Steamcmd to ensure it's available; fixes the ERROR! Failed to install app '...' (Missing configuration) issue
-	#if ! sudo -u $GAME_USER /usr/games/steamcmd +login anonymous +quit; then
-	#	log_error "Steamcmd could not be ran!  Unable to install game"
-	#	exit 1
-	#fi
+	install_steamcmd
+	# Run Steamcmd to ensure it's available; fixes the ERROR! Failed to install app '...' (Missing configuration) issue
+	if ! sudo -u $GAME_USER /usr/games/steamcmd +login anonymous +quit; then
+		log_error "Steamcmd could not be ran!  Unable to install game"
+		exit 1
+	fi
 	
 	# Install the management script
 	if ! install_warlock_manager "$REPO" "$BRANCH" "$MANAGER_VERSION"; then
 		log_error "Warlock Manager could not be installed!  Unable to install game"
 		exit 1
 	fi
+
+	# Grab Proton from Glorious Eggroll
+	PROTON_PATH="$(install_proton "$PROTON_VERSION")/proton"
+	"$GAME_DIR/manage.py" $debug set-config "Default Proton Path" "${PROTON_PATH}"
 
 	# If other PIP packages are required for your management interface,
 	# add them here as necessary, for example:

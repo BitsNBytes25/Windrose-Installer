@@ -8,8 +8,6 @@ import os
 # otherwise the imports will fail when running as a standalone script.
 # import:org_python/venv_path_include.py
 
-import logging
-
 # Import the appropriate type of handler for the game installer.
 # Common options are:
 #from warlock_manager.apps.base_app import BaseApp
@@ -39,6 +37,8 @@ from warlock_manager.libs.firewall import Firewall
 
 # Utilities provided by Warlock that are common to many applications
 from warlock_manager.libs import utils
+from warlock_manager.libs.proton import get_proton_paths
+from warlock_manager.libs.logger import logger
 
 # Useful in some games
 # from warlock_manager.formatters.cli_formatter import cli_formatter
@@ -74,7 +74,7 @@ class GameApp(SteamApp):
 		# self.disabled_features = {'api'}
 
 		self.configs = {
-			'manager': INIConfig('manager', os.path.join(utils.get_app_directory(), '.settings.ini'))
+			'manager': INIConfig('manager', os.path.join(utils.get_base_directory(), '.settings.ini'))
 		}
 		self.load()
 
@@ -85,33 +85,78 @@ class GameApp(SteamApp):
 		:return:
 		"""
 		if os.geteuid() != 0:
-			logging.error('Please run this script with sudo to perform first-run configuration.')
+			logger.error('Please run this script with sudo to perform first-run configuration.')
 			return False
 
-		super().first_run()
-
 		# Create necessary directories if applicable
-		# utils.makedirs(os.path.join(utils.get_app_directory(), 'Configs'))
-		# utils.makedirs(os.path.join(utils.get_app_directory(), 'Packages'))
+		utils.makedirs(os.path.join(utils.get_app_directory(), 'Configs'))
+		utils.makedirs(os.path.join(utils.get_app_directory(), 'Packages'))
 
 		# Install the game with Steam.
 		# It's a good idea to ensure the game is installed on first run.
-		# self.update()
+		if not self.update():
+			logger.error('Failed to update Steam')
+			return False
+
+		# Run migrations for the application
+		self.run_migrations()
 
 		# First run is a great time to auto-create some services for this game too
-		#services = self.get_services()
-		#if len(services) == 0:
-		#	# No services detected, create one.
-		#	logging.info('No services detected, creating one...')
-		#	self.create_service('valheim-server')
-		#else:
-		# Ensure services match new format
-		#for service in services:
-		#	logging.info('Ensuring %s service file is on latest format' % service.service)
-		#	service.build_systemd_config()
-		#	service.reload()
+		services = self.get_services()
+		if len(services) == 0:
+			# No services detected, create one.
+			logger.info('No services detected, creating one...')
+			self.create_service('windrose-server')
+		else:
+			# Ensure services match new format
+			for service in services:
+				logger.info('Ensuring %s service file is on latest format' % service.service)
+				service.build_systemd_config()
+				service.reload()
 
 		return True
+
+	def get_option_options(self, option: str):
+		"""
+		Get the list of possible options for a configuration option
+		:param option:
+		:return:
+		"""
+		if option == 'Default Proton Path':
+			return get_proton_paths()
+		else:
+			return super().get_option_options(option)
+
+	def option_value_updated(self, option: str, previous_value, new_value) -> bool | None:
+		"""
+		Handle any special actions needed when an option value is updated
+
+		:param option:
+		:param previous_value:
+		:param new_value:
+		:return:
+		"""
+		if option == 'Default Proton Path':
+			# Update the Proton path in the service config
+			for svc in self.get_services():
+				if svc.get_option_value('Proton Path') == previous_value:
+					svc.set_option('Proton Path', new_value)
+			return True
+
+		return None
+
+	def get_proton_path(self) -> str | None:
+		"""
+		Get the path to Proton as configured.
+		:return:
+		"""
+		proton_path = self.get_option_value('Default Proton Path')
+		if proton_path:
+			return proton_path
+		else:
+			# It's not set yet!  Just return the first one found.
+			paths = get_proton_paths()
+			return paths[0] if len(paths) > 0 else None
 
 	def remove(self):
 		"""
@@ -136,25 +181,91 @@ class GameService(BaseService):
 		"""
 		super().__init__(service, game)
 		self.configs = {
-			'server': PropertiesConfig('server', os.path.join(self.get_app_directory(), 'server.properties'))
+			# 'server': PropertiesConfig('server', os.path.join(self.get_app_directory(), 'server.properties'))
 			# A common configuration tactic is to store binary parameters in a service file in Configs.
-			# 'service': INIConfig('service', os.path.join(utils.get_base_directory(), 'Configs', 'service.%s.ini' % self.service))
+			'service': INIConfig('service', os.path.join(utils.get_base_directory(), 'Configs', 'service.%s.ini' % self.service))
 		}
 		self.load()
+
+	def create_service(self):
+		"""
+		Create the systemd service for this game, including the service file and environment file
+		:return:
+		"""
+		super().create_service()
+
+		# New instances need the proton prefix
+		self.set_option('Proton Path', self.game.get_proton_path())
+
+		# Ensure the prefix exists for this instance.
+		prefix_path = os.path.join(utils.get_base_directory(), 'prefixes', self.service)
+		prefix_src = os.path.join(
+			os.path.dirname(self.get_option_value('Proton Path')),
+			'files/share/default_pfx'
+		)
+		if not os.path.exists(prefix_path):
+			shutil.copytree(prefix_src, prefix_path)
+			utils.ensure_file_ownership(prefix_path)
+
+		self.build_systemd_config()
+		self.reload()
+
+	def get_environment(self) -> dict:
+		"""
+		Get the environment variables for this service as a dictionary
+
+		:return:
+		"""
+		ret = {
+			'XDG_RUNTIME_DIR': '/run/user/%s' % utils.get_app_uid(),
+			'STEAM_COMPAT_CLIENT_INSTALL_PATH': os.path.join(utils.get_home_directory(), '.local/share/Steam'),
+			'STEAM_COMPAT_DATA_PATH': os.path.join(utils.get_base_directory(), 'prefixes', self.service)
+		}
+
+		return ret
 
 	def get_executable(self) -> str:
 		"""
 		Get the full executable for this game service
 		:return:
 		"""
-		path = os.path.join(self.get_app_directory(), 'Game-Executable.bin')
+
+		proton_path = self.get_option_value('Proton Path')
+		if not proton_path:
+			# This needs something, so try to pull whatever path is available from the game manager.
+			proton_path = self.game.get_proton_path()
+
+		if not proton_path:
+			logger.error('Unable to determine Proton path for %s' % self.service)
+			return '/bin/false'
+
+		binary = 'R5\Binaries\Win64\WindroseServer-Win64-Shipping.exe'
+		options = ''
+		flags = '-log'
 
 		# Add arguments for the service, if applicable
 		#args = cli_formatter(self.configs['service'], 'flag')
 		#if args:
 		#	path += ' ' + args
 
-		return path
+		return ' '.join([
+			proton_path,
+			'run',
+			binary,
+			options,
+			flags
+		])
+
+	def get_option_options(self, option: str):
+		"""
+		Get the list of possible options for a configuration option
+		:param option:
+		:return:
+		"""
+		if option == 'Proton Path':
+			return get_proton_paths()
+		else:
+			return super().get_option_options(option)
 
 	def option_value_updated(self, option: str, previous_value, new_value) -> bool | None:
 		"""

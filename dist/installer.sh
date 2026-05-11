@@ -68,6 +68,9 @@ GAME_DIR="/home/${GAME_USER}/${GAME}"
 # https://github.com/BitsNBytes25/Warlock-Manager
 MANAGER_VERSION="2.2.12"
 
+# https://github.com/GloriousEggroll/proton-ge-custom
+PROTON_VERSION="10-34"
+
 function usage() {
   cat >&2 <<EOD
 Usage: $0 [options]
@@ -891,6 +894,87 @@ function print_header() {
 }
 
 ##
+# Install SteamCMD
+#
+# CHANGELOG:
+#
+#   2025.12.16 - Ensure steam GPG key is readable by apt
+#   2025.11.09 - Switch to using download to support curl/wget abstraction
+#   2025.11.03 - Add support for Debian 13
+#   2024.12.23 - Add support for non-interactive acceptance of Steam license
+#   2024.12.22 - Initial version
+#
+function install_steamcmd() {
+	echo "Installing SteamCMD..."
+
+	TYPE_DEBIAN="$(os_like_debian)"
+	TYPE_UBUNTU="$(os_like_ubuntu)"
+	OS_VERSION="$(os_version)"
+
+	# Preliminary requirements
+	if [ "$TYPE_UBUNTU" == 1 ]; then
+		add-apt-repository -y multiverse
+		dpkg --add-architecture i386
+		apt update
+
+		# By using this script, you agree to the Steam license agreement at https://store.steampowered.com/subscriber_agreement/
+		# and the Steam privacy policy at https://store.steampowered.com/privacy_agreement/
+		# Since this is meant to support unattended installs, we will forward your acceptance of their license.
+		echo steam steam/question select "I AGREE" | debconf-set-selections
+		echo steam steam/license note '' | debconf-set-selections
+
+		apt install -y steamcmd
+	elif [ "$TYPE_DEBIAN" == 1 ]; then
+		dpkg --add-architecture i386
+		apt update
+
+		if [ "$OS_VERSION" -le 12 ]; then
+			apt install -y software-properties-common apt-transport-https dirmngr ca-certificates lib32gcc-s1
+
+			# Enable "non-free" repos for Debian (for steamcmd)
+			# https://stackoverflow.com/questions/76688863/apt-add-repository-doesnt-work-on-debian-12
+			add-apt-repository -y -U http://deb.debian.org/debian -c non-free-firmware -c non-free
+			if [ $? -ne 0 ]; then
+				echo "Workaround failed to add non-free repos, trying new method instead"
+				apt-add-repository -y non-free
+			fi
+		else
+			# Debian Trixie and later
+			if [ -e /etc/apt/sources.list ]; then
+				if ! grep -q ' non-free ' /etc/apt/sources.list; then
+					sed -i 's/main/main non-free-firmware non-free contrib/g' /etc/apt/sources.list
+				fi
+			elif [ -e /etc/apt/sources.list.d/debian.sources ]; then
+				if ! grep -q ' non-free ' /etc/apt/sources.list.d/debian.sources; then
+					sed -i 's/main/main non-free-firmware non-free contrib/g' /etc/apt/sources.list.d/debian.sources
+				fi
+			else
+				echo "Could not find a sources.list file to enable non-free repos" >&2
+				exit 1
+			fi
+		fi
+
+		# Install steam repo
+		download http://repo.steampowered.com/steam/archive/stable/steam.gpg /usr/share/keyrings/steam.gpg
+		chmod +r /usr/share/keyrings/steam.gpg
+		echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/steam.gpg] http://repo.steampowered.com/steam/ stable steam" > /etc/apt/sources.list.d/steam.list
+
+		# By using this script, you agree to the Steam license agreement at https://store.steampowered.com/subscriber_agreement/
+		# and the Steam privacy policy at https://store.steampowered.com/privacy_agreement/
+		# Since this is meant to support unattended installs, we will forward your acceptance of their license.
+		echo steam steam/question select "I AGREE" | debconf-set-selections
+		echo steam steam/license note '' | debconf-set-selections
+
+		# Install steam binary and steamcmd
+		apt update
+		apt install -y steamcmd
+	else
+		echo 'Unsupported or unknown OS' >&2
+		exit 1
+	fi
+}
+
+##
 # Install the management script from the project's repo
 #
 # Expects the following variables:
@@ -1054,6 +1138,11 @@ manager:
     default: ""
     help: "The password for accessing a private Steam branch, if applicable."
     group: Settings
+  - name: Default Proton Path
+    key: defaultprotonpath
+    section: Environment
+    type: str
+    help: "The default Proton path to use for new servers."
   - name: Delayed Shutdown Warning
     section: Messages
     key: shutdown_delayed
@@ -1137,6 +1226,13 @@ manager:
     key: webhook
     type: str
     help: "The webhook URL for sending server status updates to a Discord channel."
+service:
+  - name: Proton Path
+    key: protonpath
+    section: system
+    group: Settings
+    type: str
+    help: "The Proton path to use for this instance."
 EOF
 	chown $GAME_USER:$GAME_USER "$GAME_DIR/configs.yaml"
 
@@ -1179,6 +1275,55 @@ EOF
 	return 0
 }
 
+
+##
+# Install Glorious Eggroll's Proton fork on a requested version
+#
+# https://github.com/GloriousEggroll/proton-ge-custom
+#
+# Will install Proton into /opt/script-collection/GE-Proton${VERSION}
+# with its pfx directory in /opt/script-collection/GE-Proton${VERSION}/files/share/default_pfx
+#
+# @arg $1 string Proton version to install
+#
+# CHANGELOG:
+#   2026.04.26 - Supress command output on Ubuntu
+#   2026.04.23 - Register proton path in alternatives to /usr/local/bin/proton
+#   2025.11.23 - Use download scriptlet for downloading
+#   2024.12.22 - Initial version
+#
+function install_proton() {
+	VERSION="${1:-9-21}"
+
+	PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton${VERSION}/GE-Proton${VERSION}.tar.gz"
+	PROTON_TGZ="$(basename "$PROTON_URL")"
+	PROTON_NAME="$(basename "$PROTON_TGZ" ".tar.gz")"
+
+	# We will use this directory as a working directory for source files that need downloaded.
+	[ -d /opt/script-collection ] || mkdir -p /opt/script-collection
+
+	# Grab Proton from Glorious Eggroll
+	if ! download "$PROTON_URL" "/opt/script-collection/$PROTON_TGZ" --no-overwrite; then
+		echo "install_proton: Cannot download Proton from ${PROTON_URL}!" >&2
+		return 1
+	fi
+
+	# Extract GE Proton into /opt
+	if [ ! -e "/opt/script-collection/$PROTON_NAME" ]; then
+		tar -x -C /opt/script-collection/ -f "/opt/script-collection/$PROTON_TGZ"
+	fi
+
+	# Update distro registrations for alternative software.
+	if os_like debian; then
+		update-alternatives --install "/usr/local/bin/proton" "proton" "/opt/script-collection/$PROTON_NAME/proton" 1 >&2
+	elif os_like rhel; then
+		alternatives --install "/usr/local/bin/proton" "proton" "/opt/script-collection/$PROTON_NAME/proton" 1 >&2
+	elif os_like suse; then
+		update-alternatives --install "/usr/local/bin/proton" "proton" "/opt/script-collection/$PROTON_NAME/proton" 1 >&2
+	fi
+
+	echo "/opt/script-collection/$PROTON_NAME"
+}
 
 print_header "$GAME_DESC *unofficial* Installer ${INSTALLER_VERSION}"
 
@@ -1251,25 +1396,31 @@ function install_application() {
 
 	# Most games install into AppFiles, so ensure it's created.
 	[ -e "$GAME_DIR/AppFiles" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/AppFiles"
-	#[ -e "$GAME_DIR/Configs" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Configs"
+    [ -e "$GAME_DIR/Configs" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Configs"
 	#[ -e "$GAME_DIR/Packages" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Packages"
+    [ -e "$GAME_DIR/Environments" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Environments"
+    [ -e "$GAME_DIR/Migrations" ] || sudo -u $GAME_USER mkdir -p "$GAME_DIR/Migrations"
 
 
 	# To download a game with steamcmd, include the following header
 	#  # scriptlet:steam/install-steamcmd.sh
 	# and use:
-	#install_steamcmd
-	## Run Steamcmd to ensure it's available; fixes the ERROR! Failed to install app '...' (Missing configuration) issue
-	#if ! sudo -u $GAME_USER /usr/games/steamcmd +login anonymous +quit; then
-	#	log_error "Steamcmd could not be ran!  Unable to install game"
-	#	exit 1
-	#fi
+	install_steamcmd
+	# Run Steamcmd to ensure it's available; fixes the ERROR! Failed to install app '...' (Missing configuration) issue
+	if ! sudo -u $GAME_USER /usr/games/steamcmd +login anonymous +quit; then
+		log_error "Steamcmd could not be ran!  Unable to install game"
+		exit 1
+	fi
 	
 	# Install the management script
 	if ! install_warlock_manager "$REPO" "$BRANCH" "$MANAGER_VERSION"; then
 		log_error "Warlock Manager could not be installed!  Unable to install game"
 		exit 1
 	fi
+
+	# Grab Proton from Glorious Eggroll
+	PROTON_PATH="$(install_proton "$PROTON_VERSION")/proton"
+	"$GAME_DIR/manage.py" $debug set-config "Default Proton Path" "${PROTON_PATH}"
 
 	# If other PIP packages are required for your management interface,
 	# add them here as necessary, for example:
