@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import shutil
+import socket
 import sys
 # Include the virtual environment site-packages in sys.path
 here = os.path.dirname(os.path.realpath(__file__))
@@ -19,12 +20,14 @@ sys.path.insert(
 from warlock_manager.apps.steam_app import SteamApp
 from warlock_manager.services.base_service import BaseService
 from warlock_manager.config.ini_config import INIConfig
+from warlock_manager.config.json_config import JSONConfig
 from warlock_manager.config.properties_config import PropertiesConfig
 from warlock_manager.libs.app_runner import app_runner
 from warlock_manager.libs.firewall import Firewall
 from warlock_manager.libs import utils
 from warlock_manager.libs.proton import get_proton_paths
 from warlock_manager.libs.logger import logger
+from warlock_manager.libs.get_wan_ip import get_wan_ip
 from warlock_manager.mods.warlock_nexus_mod import WarlockNexusMod
 # To allow running as a standalone script without installing the package, include the venv path for imports.
 # This will set the include path for this path to .venv to allow packages installed therein to be utilized.
@@ -45,7 +48,6 @@ from warlock_manager.mods.warlock_nexus_mod import WarlockNexusMod
 # Import the various configuration handlers used by this game.
 # Common options are:
 # from warlock_manager.config.cli_config import CLIConfig
-# from warlock_manager.config.json_config import JSONConfig
 # from warlock_manager.config.unreal_config import UnrealConfig
 
 # Load the application runner responsible for interfacing with CLI arguments
@@ -64,6 +66,31 @@ from warlock_manager.mods.warlock_nexus_mod import WarlockNexusMod
 
 class GameMod(WarlockNexusMod):
 	pass
+
+
+def get_local_ip():
+	"""
+	Connects to a known external address (like Google's DNS server)
+	and retrieves the local IP address associated with that connection.
+	This is generally more reliable than just using socket.gethostbyname(socket.gethostname()).
+	"""
+	try:
+		# Create a socket object
+		sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+		# Connect the socket to a server (doesn't actually send data, just establishes the route)
+		# We use Google's public DNS server address here as an example.
+		sock.connect(("8.8.8.8", 80))
+
+		# Once connected, we ask the socket for its local IP address
+		local_ip = sock.getsockname()[0]
+		return local_ip
+	except Exception as e:
+		print(f"An error occurred while fetching the IP address: {e}")
+		return None
+	finally:
+		# Always close the socket when done! Good housekeeping!
+		sock.close()
 
 
 # For Steam games, swap 'BaseApp' with 'SteamApp'
@@ -195,8 +222,7 @@ class GameService(BaseService):
 		"""
 		super().__init__(service, game)
 		self.configs = {
-			# 'server': PropertiesConfig('server', os.path.join(self.get_app_directory(), 'server.properties'))
-			# A common configuration tactic is to store binary parameters in a service file in Configs.
+			'server': JSONConfig('game', os.path.join(utils.get_base_directory(), 'AppFiles', 'R5', 'ServerDescription.json')),
 			'service': INIConfig('service', os.path.join(utils.get_base_directory(), 'Configs', 'service.%s.ini' % self.service))
 		}
 		self.load()
@@ -206,6 +232,14 @@ class GameService(BaseService):
 		Create the systemd service for this game, including the service file and environment file
 		:return:
 		"""
+
+		wan_ip = get_wan_ip()
+		local_ip = get_local_ip()
+		if wan_ip != local_ip:
+			self.set_option('Use Direct Connection', False)
+		else:
+			self.set_option('Use Direct Connection', True)
+
 		super().create_service()
 
 		# New instances need the proton prefix
@@ -294,17 +328,13 @@ class GameService(BaseService):
 		success = None
 
 		# Special option actions
-		if option == 'Server Port':
+		if option == 'Direct Connection Server Port':
 			# Update firewall for game port change
 			if previous_value:
 				Firewall.remove(int(previous_value), 'tcp')
-			Firewall.allow(int(new_value), 'tcp', '%s game port' % self.game.name)
-			success = True
-		elif option == 'Query Port':
-			# Update firewall for game port change
-			if previous_value:
 				Firewall.remove(int(previous_value), 'udp')
-			Firewall.allow(int(new_value), 'udp', '%s query port' % self.game.name)
+			Firewall.allow(int(new_value), 'tcp', '%s game port' % self.game.name)
+			Firewall.allow(int(new_value), 'udp', '%s game port' % self.game.name)
 			success = True
 
 		# For games that need to regenerate systemd to apply changes
@@ -387,11 +417,14 @@ class GameService(BaseService):
 
 		:return:
 		"""
-		return [(123, 'tcp', 'test', False),]
-		# Return a string to a config parameter to allow changing, or a number to use a fixed port
-		return [
-			('Server Port', 'udp', '%s game port' % self.game.name, False)
-		]
+
+		if self.get_option('Use Direct Connection'):
+			return [
+				('Direct Connection Server Port', 'udp', '%s game port' % self.game.name, False),
+				('Direct Connection Server Port', 'tcp', '%s game port' % self.game.name, False)
+			]
+		else:
+			return []
 
 	def get_game_pid(self) -> int:
 		"""

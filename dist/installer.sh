@@ -1055,74 +1055,47 @@ EOF
 
 	# Install configuration definitions
 	cat > "$GAME_DIR/configs.yaml" <<EOF
-game:
-  - name: APIPort
-    section: "/Script/Vein.VeinGameSession"
-    key: HTTPPort
-    default: ""
-    type: int
-    help: "The port for the server API. Leave blank to disable."
-  - name: Public
-    section: "/Script/Vein.VeinGameSession"
-    key: bPublic
-    default: "true"
+server:
+  - name: Server Name
+    key: ServerDescription_Persistent/ServerName
+    type: str
+    group: Basic
+    help: "Name of your server. Useful for distinguishing servers with similar invite codes."
+  - name: Invite Code
+    key: ServerDescription_Persistent/InviteCode
+    type: str
+    group: Basic
+    help: "Invite code used to find your server. Allowed characters: 0–9, a–z, A–Z. Must contain at least 6 characters. Case-sensitive."
+  - name: Password Protected
+    key: ServerDescription_Persistent/IsPasswordProtected
     type: bool
-    help: "Make the server publicly visible in server browsers."
-  - name: GamePort
-    section: URL
-    key: Port
-    default: "7777"
+    default: false
+    group: Basic
+    help: "Specifies whether a password is required."
+  - name: Password
+    key: ServerDescription_Persistent/Password
+    type: str
+    group: Basic
+    help: "The password required to join the server."
+  - name: World Island ID
+    key: ServerDescription_Persistent/WorldIslandID
+    type: str
+    help: "ID of the selected world. Must match the corresponding value in one of the server's WorldDescription.json files."
+  - name: Max Player Count
+    key: ServerDescription_Persistent/MaxPlayerCount
     type: int
-    help: "The main port for game connections."
-  - name: MaxPlayers
-    section: "/Script/Engine.GameSession"
-    key: MaxPlayers
-    default: "16"
-    type: int
+    default: 8
     help: "Maximum number of players allowed on the server."
-  - name: ServerDescription
-    section: "/Script/Vein.VeinGameSession"
-    key: ServerDescription
-    default: "Short description of your server and your community"
-    type: text
-    help: "A brief description of your server that appears in server browsers."
-  - name: ServerName
-    section: "/Script/Vein.VeinGameSession"
-    key: ServerName
-    default: "My Vein Server"
-    type: str
-    help: "The name of your server as it appears in server browsers."
-  - name: ServerPassword
-    section: "/Script/Vein.VeinGameSession"
-    key: Password
-    default: ""
-    type: str
-    help: "Password required to join the server. Leave blank for no password."
-  - name: SteamQueryPort
-    section: OnlineSubsystemSteam
-    key: GameServerQueryPort
-    default: "27015"
+  - name: Use Direct Connection
+    key: ServerDescription_Persistent/UseDirectConnection
+    type: bool
+    default: false
+    help: "Specifies whether to use direct connection for the server."
+  - name: Direct Connection Server Port
+    key: ServerDescription_Persistent/DirectConnectionServerPort
     type: int
-    help: "The Steam query port for server listing and queries."
-  - name: VACEnabled
-    section: OnlineSubsystemSteam
-    key: bVACEnabled
-    default: "false"
-    type: bool
-    help: "Enable Valve Anti-Cheat (VAC) on the server."
-engine:
-  - name: AISpawner
-    section: ConsoleVariables
-    key: vein.AISpawner.Enabled
-    default: "true"
-    type: bool
-    help: "Enable or disable AI spawners on the server."
-  - name: PVPEnabled
-    section: ConsoleVariables
-    key: vein.PvP
-    default: "true"
-    type: bool
-    help: "Enable or disable PvP mode on the server."
+    default: 7777
+    help: "Port number for direct connection server."
 manager:
   - name: Steam Branch
     section: Steam
