@@ -12,8 +12,8 @@ import logging
 
 # Import the appropriate type of handler for the game installer.
 # Common options are:
-from warlock_manager.apps.base_app import BaseApp
-# from warlock_manager.apps.steam_app import SteamApp
+#from warlock_manager.apps.base_app import BaseApp
+from warlock_manager.apps.steam_app import SteamApp
 
 # Import the appropriate type of handler for the game services.
 # Common options are:
@@ -53,7 +53,7 @@ class GameMod(WarlockNexusMod):
 
 
 # For Steam games, swap 'BaseApp' with 'SteamApp'
-class GameApp(BaseApp):
+class GameApp(SteamApp):
 	"""
 	Game application manager
 	"""
@@ -61,14 +61,14 @@ class GameApp(BaseApp):
 	def __init__(self):
 		super().__init__()
 
-		self.name = 'GameName'
-		self.desc = 'Longer identifier for the game server'
+		self.name = 'Windrose'
+		self.desc = 'Windrose Dedicated Server'
 		# For steam games, include the steam ID
-		# self.steam_id = '90'
+		self.steam_id = '4129620'
 		self.service_handler = GameService
 		# Set this to the class that handles the game mod system, if applicable
 		self.mod_handler = GameMod
-		self.service_prefix = 'your-game-'
+		self.service_prefix = 'windrose-'
 
 		# Use this to mark certain features as disabled in this game manager
 		# self.disabled_features = {'api'}

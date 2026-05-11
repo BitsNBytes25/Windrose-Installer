@@ -1,1 +1,21 @@
-- PLACEHOLDER -
+- guid: b5453ff4-e65e-3975-a9db-3ec4c12cb911
+  title: Windrose
+  source: github
+  repo: BitsNBytes25/Windrose-Installer
+  installer: dist/installer.sh
+  author: Charlie Powell <cdp1337@bitsnbytes.dev>
+  category: Game Server
+  supports:
+    - "Debian 12, 13"
+    - "Ubuntu 24.04"
+  syntax:
+    - "--uninstall  - Perform an uninstallation"
+    - "--dir=<src> - Use a custom installation directory instead of the default (optional)"
+    - "--skip-firewall  - Do not install or configure a system firewall"
+    - "--non-interactive  - Run the installer in non-interactive mode (useful for scripted installs)"
+    - "--branch=<str> - Use a specific branch of the management script repository DEFAULT=main"
+    - "--debug  - Include to show debug output"
+  image: media/some-game-image.webp
+  icon: media/some-game-icon.webp
+  thumbnail: media/some-game-thumbnail.webp
+

@@ -8,7 +8,7 @@
 # @AUTHOR  Charlie Powell <cdp1337@bitsnbytes.dev>
 # @CATEGORY Game Server
 # @TRMM-TIMEOUT 600
-# @WARLOCK-TITLE Game Name
+# @WARLOCK-TITLE Windrose
 # @WARLOCK-IMAGE media/some-game-image.webp
 # @WARLOCK-ICON media/some-game-icon.webp
 # @WARLOCK-THUMBNAIL media/some-game-thumbnail.webp
@@ -41,17 +41,17 @@
 ############################################
 
 # Version of this installation script, bump when you release new versions.
-INSTALLER_VERSION="v20260318"
+INSTALLER_VERSION="v20260510"
 
 # Name of the game (used to create the directory)
-GAME="GameName"
+GAME="Windrose"
 
-GAME_DESC="Game Dedicated Server"
+GAME_DESC="Windrose Dedicated Server"
 
 # If your repo URL is github.com/username/repo, then this should be "username/repo" without the "github.com" or "https://"
-REPO="your-github/your-repo"
+REPO="BitsNBytes25/Windrose-Installer"
 
-WARLOCK_GUID="replace-with-guid-once-compiled"
+WARLOCK_GUID="b5453ff4-e65e-3975-a9db-3ec4c12cb911"
 
 # Set to the username to use for this game.
 # Steam generally recommends using 'steam', but this can be whatever makes sense.
