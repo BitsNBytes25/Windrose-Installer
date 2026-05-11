@@ -222,7 +222,7 @@ class GameService(BaseService):
 		"""
 		super().__init__(service, game)
 		self.configs = {
-			'server': JSONConfig('game', os.path.join(utils.get_base_directory(), 'AppFiles', 'R5', 'ServerDescription.json')),
+			'server': JSONConfig('server', os.path.join(utils.get_base_directory(), 'AppFiles', 'R5', 'ServerDescription.json')),
 			'service': INIConfig('service', os.path.join(utils.get_base_directory(), 'Configs', 'service.%s.ini' % self.service))
 		}
 		self.load()
@@ -379,21 +379,21 @@ class GameService(BaseService):
 		Get the maximum player count allowed on the server
 		:return:
 		"""
-		return self.get_option_value('Max Players')
+		return self.get_option_value('Max Player Count')
 
 	def get_name(self) -> str:
 		"""
 		Get the name of this game server instance
 		:return:
 		"""
-		return self.get_option_value('Level Name')
+		return self.get_option_value('Server Name')
 
 	def get_port(self) -> int | None:
 		"""
 		Get the primary port of the service, or None if not applicable
 		:return:
 		"""
-		return self.get_option_value('Server Port')
+		return self.get_option_value('Direct Connection Server Port')
 	
 	def get_port_definitions(self) -> list:
 		"""

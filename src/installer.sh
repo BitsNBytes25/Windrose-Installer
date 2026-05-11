@@ -9,9 +9,9 @@
 # @CATEGORY Game Server
 # @TRMM-TIMEOUT 600
 # @WARLOCK-TITLE Windrose
-# @WARLOCK-IMAGE media/some-game-image.webp
-# @WARLOCK-ICON media/some-game-icon.webp
-# @WARLOCK-THUMBNAIL media/some-game-thumbnail.webp
+# @WARLOCK-IMAGE media/windrose-image.webp
+# @WARLOCK-ICON media/windrose-icon.webp
+# @WARLOCK-THUMBNAIL media/windrose-thumbnail.webp
 #
 # Supports:
 #   Debian 12, 13

@@ -15,7 +15,7 @@
     - "--non-interactive  - Run the installer in non-interactive mode (useful for scripted installs)"
     - "--branch=<str> - Use a specific branch of the management script repository DEFAULT=main"
     - "--debug  - Include to show debug output"
-  image: media/some-game-image.webp
-  icon: media/some-game-icon.webp
-  thumbnail: media/some-game-thumbnail.webp
+  image: media/windrose-image.webp
+  icon: media/windrose-icon.webp
+  thumbnail: media/windrose-thumbnail.webp
 
