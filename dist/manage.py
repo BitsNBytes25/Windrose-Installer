@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import shutil
 import sys
 # Include the virtual environment site-packages in sys.path
 here = os.path.dirname(os.path.realpath(__file__))
@@ -102,8 +103,8 @@ class GameApp(SteamApp):
 			return False
 
 		# Create necessary directories if applicable
-		utils.makedirs(os.path.join(utils.get_app_directory(), 'Configs'))
-		utils.makedirs(os.path.join(utils.get_app_directory(), 'Packages'))
+		utils.makedirs(os.path.join(utils.get_base_directory(), 'Configs'))
+		utils.makedirs(os.path.join(utils.get_base_directory(), 'Packages'))
 
 		# Install the game with Steam.
 		# It's a good idea to ensure the game is installed on first run.

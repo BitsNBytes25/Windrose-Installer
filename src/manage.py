@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import shutil
 
 # To allow running as a standalone script without installing the package, include the venv path for imports.
 # This will set the include path for this path to .venv to allow packages installed therein to be utilized.
@@ -89,8 +90,8 @@ class GameApp(SteamApp):
 			return False
 
 		# Create necessary directories if applicable
-		utils.makedirs(os.path.join(utils.get_app_directory(), 'Configs'))
-		utils.makedirs(os.path.join(utils.get_app_directory(), 'Packages'))
+		utils.makedirs(os.path.join(utils.get_base_directory(), 'Configs'))
+		utils.makedirs(os.path.join(utils.get_base_directory(), 'Packages'))
 
 		# Install the game with Steam.
 		# It's a good idea to ensure the game is installed on first run.
