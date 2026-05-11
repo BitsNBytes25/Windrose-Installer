@@ -84,6 +84,7 @@ PROTON_VERSION="10-34"
 # scriptlet:steam/install-steamcmd.sh
 # scriptlet:warlock/install_warlock_manager.sh
 # scriptlet:proton/install.sh
+# scriptlet:xvfb/install.sh
 # scriptlet:bz_eval_log/log.sh
 
 print_header "$GAME_DESC *unofficial* Installer ${INSTALLER_VERSION}"
@@ -147,6 +148,9 @@ function install_application() {
 	# For java-based games, you can install specific versions of Java if necessary.
 	# Include # scriptlet:openjdk/install.sh as a header include
 	# and run install_openjdk 21 here.
+
+	# This game requires a "GUI"
+	install_xvfb
 
 	if [ "$FIREWALL" == "1" ]; then
 		if [ "$(get_enabled_firewall)" == "none" ]; then

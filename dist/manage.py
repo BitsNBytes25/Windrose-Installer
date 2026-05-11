@@ -233,7 +233,9 @@ class GameService(BaseService):
 		ret = {
 			'XDG_RUNTIME_DIR': '/run/user/%s' % utils.get_app_uid(),
 			'STEAM_COMPAT_CLIENT_INSTALL_PATH': os.path.join(utils.get_home_directory(), '.local/share/Steam'),
-			'STEAM_COMPAT_DATA_PATH': os.path.join(utils.get_base_directory(), 'prefixes', self.service)
+			'STEAM_COMPAT_DATA_PATH': os.path.join(utils.get_base_directory(), 'prefixes', self.service),
+			'PROTON_USE_XALIA': 0,
+			'DISPLAY': ':99'
 		}
 
 		return ret
@@ -385,6 +387,7 @@ class GameService(BaseService):
 
 		:return:
 		"""
+		return [(123, 'tcp', 'test', False),]
 		# Return a string to a config parameter to allow changing, or a number to use a fixed port
 		return [
 			('Server Port', 'udp', '%s game port' % self.game.name, False)
