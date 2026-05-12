@@ -114,7 +114,7 @@ class GameApp(SteamApp):
 		self.service_prefix = 'windrose-'
 
 		# Use this to mark certain features as disabled in this game manager
-		# self.disabled_features = {'api'}
+		self.disabled_features = {'api', 'cmd', 'create_service'}
 
 		self.configs = {
 			'manager': INIConfig('manager', os.path.join(utils.get_base_directory(), '.settings.ini'))
@@ -352,25 +352,21 @@ class GameService(BaseService):
 		Check if API is enabled for this service
 		:return:
 		"""
-		return (
-			self.get_option_value('Enable RCON') and
-			self.get_option_value('RCON Port') != '' and
-			self.get_option_value('RCON Password') != ''
-		)
+		return False
 
 	def get_api_port(self) -> int:
 		"""
 		Get the API port from the service configuration
 		:return:
 		"""
-		return self.get_option_value('RCON Port')
+		return 0
 
 	def get_api_password(self) -> str:
 		"""
 		Get the API password from the service configuration
 		:return:
 		"""
-		return self.get_option_value('RCON Password')
+		return ''
 	
 	def get_players(self) -> list | None:
 		"""
