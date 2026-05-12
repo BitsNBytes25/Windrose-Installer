@@ -96,7 +96,8 @@ class GameApp(SteamApp):
 		self.steam_id = '4129620'
 		self.service_handler = GameService
 		# Set this to the class that handles the game mod system, if applicable
-		self.mod_handler = GameMod
+		# Disable mod support for the moment
+		# self.mod_handler = GameMod
 		self.service_prefix = 'windrose-'
 
 		# Use this to mark certain features as disabled in this game manager
