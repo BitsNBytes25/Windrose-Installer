@@ -28,6 +28,7 @@ from warlock_manager.libs import utils
 from warlock_manager.libs.proton import get_proton_paths
 from warlock_manager.libs.logger import logger
 from warlock_manager.libs.get_wan_ip import get_wan_ip
+from warlock_manager.libs.cmd import Cmd
 from warlock_manager.mods.warlock_nexus_mod import WarlockNexusMod
 # To allow running as a standalone script without installing the package, include the venv path for imports.
 # This will set the include path for this path to .venv to allow packages installed therein to be utilized.
@@ -239,11 +240,14 @@ class GameService(BaseService):
 			self.set_option('Use Direct Connection', False)
 		else:
 			self.set_option('Use Direct Connection', True)
+			self.set_option('Direct Connection Server Address', wan_ip)
 
 		super().create_service()
 
 		# New instances need the proton prefix
 		self.set_option('Proton Path', self.game.get_proton_path())
+		self.set_option('Max Player Count', 8)
+		self.set_option('Server Name', 'Windrose Server')
 
 		# Ensure the prefix exists for this instance.
 		prefix_path = os.path.join(utils.get_base_directory(), 'prefixes', self.service)
@@ -289,7 +293,7 @@ class GameService(BaseService):
 			logger.error('Unable to determine Proton path for %s' % self.service)
 			return '/bin/false'
 
-		binary = 'R5\Binaries\Win64\WindroseServer-Win64-Shipping.exe'
+		binary = 'R5/Binaries/Win64/WindroseServer-Win64-Shipping.exe'
 		options = ''
 		flags = '-log'
 
@@ -420,11 +424,41 @@ class GameService(BaseService):
 
 		if self.get_option_value('Use Direct Connection'):
 			return [
-				('Direct Connection Server Port', 'udp', '%s game port' % self.game.name, False),
-				('Direct Connection Server Port', 'tcp', '%s game port' % self.game.name, False)
+				('Direct Connection Server Port', 'udp', '%s UDP' % self.game.name, False),
+				('Direct Connection Server Port', 'tcp', '%s TCP' % self.game.name, False)
 			]
 		else:
 			return []
+
+	def get_pids(self) -> list:
+		"""
+		Get all process IDs for this game instance
+		:return:
+		"""
+
+		# There's no quick way to get the game process PID from systemd,
+		# so use ps to find the process based on the map name
+		pids = [self.get_pid()]
+		binary = 'WindroseServer-Win64-Shipping.exe'
+		command = Cmd(['pgrep', '-af', binary])
+		command.is_memory_cacheable(2)
+		for line in command.lines:
+			if line.strip():
+				pid, cmd = line.strip().split(' ', 1)
+				pids.append(int(pid))
+
+		# This game uses Proton, so networking is handled by the wineserver binary.
+		# Check wineservers if their environment is configured to use this instance.
+		wineservers = Cmd(['pgrep', 'wineserver']).lines
+		for wine_pid in wineservers:
+			wine_env_file = '/proc/%s/environ' % wine_pid
+			if os.path.exists(wine_env_file):
+				with open(wine_env_file, 'r', encoding='utf-8') as f:
+					wine_env = f.read()
+				if '/prefixes/%s/' % self.service in wine_env:
+					pids.append(int(wine_pid))
+
+		return list(set(pids))
 
 	def get_game_pid(self) -> int:
 		"""
@@ -432,23 +466,25 @@ class GameService(BaseService):
 		:return:
 		"""
 
-		# For services that do not have a helper wrapper, it's the same as the process PID
+		binary = 'WindroseServer-Win64-Shipping.exe'
+		command = Cmd(['pgrep', '-af', binary])
+		command.is_memory_cacheable(2)
+		for line in command.lines:
+			if line.strip():
+				pid, cmd = line.strip().split(' ', 1)
+				if cmd.startswith('R5/Binaries/Win64/WindroseServer-Win64-Shipping.exe'):
+					return int(pid)
+
+		# Fallback
 		return self.get_pid()
 
-		# For services that use a wrapper script, the actual game process will be different and needs looked up.
-		'''
-		# There's no quick way to get the game process PID from systemd,
-		# so use ps to find the process based on the map name
-		processes = subprocess.run([
-			'ps', 'axh', '-o', 'pid,cmd'
-		], stdout=subprocess.PIPE).stdout.decode().strip()
-		exe = os.path.join(here, 'AppFiles/Vein/Binaries/Linux/VeinServer-Linux-')
-		for line in processes.split('\n'):
-			pid, cmd = line.strip().split(' ', 1)
-			if cmd.startswith(exe):
-				return int(line.strip().split(' ')[0])
-		return 0
-		'''
+	def get_save_directory(self):
+		"""
+		Get the save directory for the game server
+
+		:return:
+		"""
+		return os.path.join(utils.get_base_directory(), 'AppFiles', 'R5', 'Saved', 'SaveProfiles', 'Default')
 
 	def get_save_files(self) -> list | None:
 		"""
@@ -463,7 +499,7 @@ class GameService(BaseService):
 
 		:return:
 		"""
-		return None
+		return ['RocksDB_v2']
 
 	def get_enabled_mods(self) -> list[GameMod]:
 		"""

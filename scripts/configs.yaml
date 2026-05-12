@@ -34,6 +34,10 @@ server:
     type: bool
     default: false
     help: "Specifies whether to use direct connection for the server."
+  - name: Direct Connection Server Address
+    key: ServerDescription_Persistent/DirectConnectionServerAddress
+    type: str
+    help: "Address for direct connection."
   - name: Direct Connection Server Port
     key: ServerDescription_Persistent/DirectConnectionServerPort
     type: int
