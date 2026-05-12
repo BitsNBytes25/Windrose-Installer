@@ -471,7 +471,7 @@ class GameService(BaseService):
 
 		:return:
 		"""
-		return os.path.join(utils.get_base_directory(), 'AppFiles', 'R5', 'Saved', 'SaveProfiles', 'Default')
+		return os.path.join(utils.get_base_directory(), 'AppFiles', 'R5', 'Saved', 'SaveProfiles', 'Default', 'RocksDB_v2', '0.10.0')
 
 	def get_save_files(self) -> list | None:
 		"""
@@ -486,7 +486,7 @@ class GameService(BaseService):
 
 		:return:
 		"""
-		return ['RocksDB_v2']
+		return ['Worlds']
 
 	def get_enabled_mods(self) -> list[GameMod]:
 		"""
